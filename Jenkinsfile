@@ -6,6 +6,10 @@ pipeline {
     disableConcurrentBuilds()
   }
 
+  environment {
+    NODE_VERSION = '20.19.0'
+  }
+
   parameters {
     choice(
       name: 'TARGET_ENV',
@@ -19,6 +23,42 @@ pipeline {
       steps {
         script {
           currentBuild.displayName = "#${env.BUILD_NUMBER} ${params.TARGET_ENV}"
+
+          if (isUnix()) {
+            env.NODE_HOME = "${pwd()}/.jenkins/node-v${env.NODE_VERSION}"
+            env.NPM_CMD = "${env.NODE_HOME}/bin/npm"
+
+            sh """
+              set -eu
+
+              if [ ! -x "${env.NODE_HOME}/bin/npm" ]; then
+                ARCHIVE="node-v${env.NODE_VERSION}-linux-x64.tar.xz"
+                URL="https://nodejs.org/dist/v${env.NODE_VERSION}/\$ARCHIVE"
+                CACHE_DIR="${pwd()}/.jenkins/cache"
+                EXTRACT_DIR="${pwd()}/.jenkins"
+
+                mkdir -p "\$CACHE_DIR" "\$EXTRACT_DIR"
+
+                if [ ! -f "\$CACHE_DIR/\$ARCHIVE" ]; then
+                  if command -v curl >/dev/null 2>&1; then
+                    curl -fsSL "\$URL" -o "\$CACHE_DIR/\$ARCHIVE"
+                  elif command -v wget >/dev/null 2>&1; then
+                    wget -qO "\$CACHE_DIR/\$ARCHIVE" "\$URL"
+                  else
+                    echo "Neither curl nor wget is available to download Node.js."
+                    exit 1
+                  fi
+                fi
+
+                tar -xJf "\$CACHE_DIR/\$ARCHIVE" -C "\$EXTRACT_DIR"
+                mv "\$EXTRACT_DIR/node-v${env.NODE_VERSION}-linux-x64" "${env.NODE_HOME}"
+              fi
+
+              "${env.NPM_CMD}" --version
+            """
+          } else {
+            env.NPM_CMD = 'npm'
+          }
         }
       }
     }
@@ -27,9 +67,9 @@ pipeline {
       steps {
         script {
           if (isUnix()) {
-            sh 'npm ci'
+            sh '"${NPM_CMD}" ci'
           } else {
-            bat 'npm ci'
+            bat '%NPM_CMD% ci'
           }
         }
       }
@@ -39,9 +79,9 @@ pipeline {
       steps {
         script {
           if (isUnix()) {
-            sh 'npm run lint'
+            sh '"${NPM_CMD}" run lint'
           } else {
-            bat 'npm run lint'
+            bat '%NPM_CMD% run lint'
           }
         }
       }
@@ -50,7 +90,9 @@ pipeline {
     stage('Build') {
       steps {
         script {
-          def buildCommand = "npm run build:${params.TARGET_ENV}"
+          def buildCommand = isUnix()
+            ? "\"${env.NPM_CMD}\" run build:${params.TARGET_ENV}"
+            : "%NPM_CMD% run build:${params.TARGET_ENV}"
 
           if (isUnix()) {
             sh buildCommand
