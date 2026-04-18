@@ -1,0 +1,9 @@
+.git
+.gitignore
+node_modules
+apps/web/node_modules
+apps/web/dist
+services/**/target
+services/**/.venv
+npm-debug.log*
+docker-compose.override.yml

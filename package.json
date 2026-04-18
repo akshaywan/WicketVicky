@@ -1,0 +1,16 @@
+{
+  "name": "wicketvicky",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm --workspace apps/web run dev",
+    "build": "npm run build:prod",
+    "build:dev": "npm --workspace apps/web run build:dev",
+    "build:qa": "npm --workspace apps/web run build:qa",
+    "build:prod": "npm --workspace apps/web run build:prod",
+    "lint": "npm --workspace apps/web run lint"
+  }
+}
