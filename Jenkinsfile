@@ -27,6 +27,7 @@ pipeline {
           if (isUnix()) {
             env.WORKSPACE_ROOT = pwd()
             env.NODE_HOME = "${env.WORKSPACE_ROOT}/.jenkins/node-v${env.NODE_VERSION}"
+            env.NODE_CMD = "${env.NODE_HOME}/bin/node"
             env.NPM_CMD = "${env.NODE_HOME}/bin/npm"
 
             sh """
@@ -62,6 +63,8 @@ pipeline {
                 mv "\$SOURCE_DIR" "${env.NODE_HOME}"
               fi
 
+              export PATH="${env.NODE_HOME}/bin:\$PATH"
+              "${env.NODE_CMD}" --version
               "${env.NPM_CMD}" --version
             """
           } else {
@@ -75,7 +78,7 @@ pipeline {
       steps {
         script {
           if (isUnix()) {
-            sh '"${NPM_CMD}" ci'
+            sh 'PATH="${NODE_HOME}/bin:$PATH" "${NPM_CMD}" ci'
           } else {
             bat '%NPM_CMD% ci'
           }
@@ -87,7 +90,7 @@ pipeline {
       steps {
         script {
           if (isUnix()) {
-            sh '"${NPM_CMD}" run lint'
+            sh 'PATH="${NODE_HOME}/bin:$PATH" "${NPM_CMD}" run lint'
           } else {
             bat '%NPM_CMD% run lint'
           }
@@ -99,7 +102,7 @@ pipeline {
       steps {
         script {
           def buildCommand = isUnix()
-            ? "\"${env.NPM_CMD}\" run build:${params.TARGET_ENV}"
+            ? "PATH=\"${env.NODE_HOME}/bin:\$PATH\" \"${env.NPM_CMD}\" run build:${params.TARGET_ENV}"
             : "%NPM_CMD% run build:${params.TARGET_ENV}"
 
           if (isUnix()) {
