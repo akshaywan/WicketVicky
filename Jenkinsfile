@@ -33,7 +33,7 @@ pipeline {
               set -eu
 
               if [ ! -x "${env.NODE_HOME}/bin/npm" ]; then
-                ARCHIVE="node-v${env.NODE_VERSION}-linux-x64.tar.xz"
+                ARCHIVE="node-v${env.NODE_VERSION}-linux-x64.tar.gz"
                 URL="https://nodejs.org/dist/v${env.NODE_VERSION}/\$ARCHIVE"
                 CACHE_DIR="${env.WORKSPACE_ROOT}/.jenkins/cache"
                 EXTRACT_DIR="${env.WORKSPACE_ROOT}/.jenkins"
@@ -54,20 +54,8 @@ pipeline {
 
                 rm -rf "\$SOURCE_DIR"
 
-                if tar -xJf "\$CACHE_DIR/\$ARCHIVE" -C "\$EXTRACT_DIR" 2>/dev/null; then
-                  :
-                elif command -v python3 >/dev/null 2>&1; then
-                  python3 - <<PY
-import tarfile
-
-archive = r"${env.WORKSPACE_ROOT}/.jenkins/cache/node-v${env.NODE_VERSION}-linux-x64.tar.xz"
-target = r"${env.WORKSPACE_ROOT}/.jenkins"
-
-with tarfile.open(archive, mode="r:xz") as tar:
-    tar.extractall(path=target)
-PY
-                else
-                  echo "Unable to extract Node.js archive: tar lacks xz support and python3 is unavailable."
+                if ! tar -xzf "\$CACHE_DIR/\$ARCHIVE" -C "\$EXTRACT_DIR"; then
+                  echo "Unable to extract Node.js archive with gzip support."
                   exit 1
                 fi
 
