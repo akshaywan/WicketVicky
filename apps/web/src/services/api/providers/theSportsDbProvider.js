@@ -17,7 +17,10 @@ function formatDateForApi(date) {
 }
 
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, {
+    ...options,
+    cache: 'no-store',
+  });
 
   if (!response.ok) {
     throw new Error(`Sports API request failed with status ${response.status}`);

@@ -1,4 +1,21 @@
 services:
+  python-api:
+    build:
+      context: .
+      dockerfile: services/python-api/Dockerfile
+    container_name: wicketvicky-python-api
+    ports:
+      - "8000:8000"
+    environment:
+      SPORTS_DATA_MODE: api
+      SPORTS_REFRESH_INTERVAL_MS: 60000
+      SPORTS_ALLOW_EMPTY_FALLBACK: "true"
+      THESPORTSDB_BASE_URL: https://www.thesportsdb.com
+      THESPORTSDB_API_KEY: 123
+      THESPORTSDB_TIER: free
+      THESPORTSDB_SPORTS: Soccer,Cricket,Tennis
+      CORS_ALLOW_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+
   web:
     build:
       context: .
@@ -10,6 +27,8 @@ services:
       - ./apps/web:/app/apps/web
       - /app/node_modules
       - /app/apps/web/node_modules
+    depends_on:
+      - python-api
     environment:
       CHOKIDAR_USEPOLLING: "true"
     stdin_open: true
@@ -22,5 +41,7 @@ services:
     container_name: wicketvicky-web-prod
     ports:
       - "8080:80"
+    depends_on:
+      - python-api
     profiles:
       - prod

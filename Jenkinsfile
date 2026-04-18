@@ -7,7 +7,8 @@ pipeline {
   }
 
   environment {
-    NODE_VERSION = '20.19.0'
+    NODE_VERSION   = '20.19.0'
+    RAILWAY_TOKEN  = credentials('railway-token')
   }
 
   parameters {
@@ -26,9 +27,9 @@ pipeline {
 
           if (isUnix()) {
             env.WORKSPACE_ROOT = pwd()
-            env.NODE_HOME = "${env.WORKSPACE_ROOT}/.jenkins/node-v${env.NODE_VERSION}"
-            env.NODE_CMD = "${env.NODE_HOME}/bin/node"
-            env.NPM_CMD = "${env.NODE_HOME}/bin/npm"
+            env.NODE_HOME      = "${env.WORKSPACE_ROOT}/.jenkins/node-v${env.NODE_VERSION}"
+            env.NODE_CMD       = "${env.NODE_HOME}/bin/node"
+            env.NPM_CMD        = "${env.NODE_HOME}/bin/npm"
 
             sh """
               set -eu
@@ -113,11 +114,69 @@ pipeline {
         }
       }
     }
+
+    stage('Deploy') {
+      steps {
+        script {
+          if (isUnix()) {
+            sh """
+              set -eu
+              export PATH="${env.NODE_HOME}/bin:\$PATH"
+
+              # ── Install Railway CLI (pinned, skipped if already present) ──────
+              RAILWAY_BIN="${env.WORKSPACE_ROOT}/.jenkins/railway"
+
+              if [ ! -x "\$RAILWAY_BIN" ]; then
+                echo "Installing Railway CLI..."
+                curl -fsSL https://raw.githubusercontent.com/railwayapp/nixpacks/main/install.sh || true
+                curl -fsSL https://railway.app/install.sh | RAILWAY_VERSION=latest sh -s -- --prefix "${env.WORKSPACE_ROOT}/.jenkins"
+              fi
+
+              export PATH="${env.WORKSPACE_ROOT}/.jenkins:\$PATH"
+              railway --version
+
+              # ── Map Jenkins TARGET_ENV → Railway environment name ─────────────
+              case "${params.TARGET_ENV}" in
+                dev)  RAILWAY_ENV="development" ;;
+                qa)   RAILWAY_ENV="staging"     ;;
+                prod) RAILWAY_ENV="production"  ;;
+                *)    echo "Unknown TARGET_ENV: ${params.TARGET_ENV}"; exit 1 ;;
+              esac
+
+              echo "Deploying to Railway environment: \$RAILWAY_ENV"
+
+              # ── Deploy the built static output ────────────────────────────────
+              railway up \
+                --service frontend \
+                --environment "\$RAILWAY_ENV" \
+                --detach \
+                apps/web/dist
+            """
+          } else {
+            // Windows agent fallback
+            bat """
+              npm install -g @railway/cli
+
+              if "${params.TARGET_ENV}"=="dev"  set RAILWAY_ENV=development
+              if "${params.TARGET_ENV}"=="qa"   set RAILWAY_ENV=staging
+              if "${params.TARGET_ENV}"=="prod" set RAILWAY_ENV=production
+
+              railway up --service frontend --environment %RAILWAY_ENV% --detach apps\\web\\dist
+            """
+          }
+        }
+      }
+    }
   }
 
   post {
     success {
       archiveArtifacts artifacts: 'apps/web/dist/**', fingerprint: true
+      echo "Deployment to Railway (${params.TARGET_ENV}) completed successfully."
+    }
+
+    failure {
+      echo "Pipeline failed. The Railway deploy stage was skipped or errored."
     }
 
     always {

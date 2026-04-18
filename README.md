@@ -44,6 +44,23 @@ WicketVicky/
    npm run build
    ```
 
+## Backend API
+
+The recommended local setup now includes the FastAPI service in `services/python-api`.
+
+Run it locally:
+
+```bash
+pip install -r services/python-api/requirements.txt
+uvicorn app.main:app --app-dir services/python-api --reload --host 0.0.0.0 --port 8000
+```
+
+Available routes:
+
+- `GET /health`
+- `GET /api/home`
+- `GET /api/matches/live`
+
 ## Environment Setup
 
 The frontend now has committed Vite environment files for:
@@ -64,19 +81,21 @@ Notes:
 
 - `npm run dev` uses Vite `development` mode automatically.
 - `npm run build` now maps to the production build.
+- `VITE_SPORTS_API_PROVIDER=backend` is now the default, so the browser fetches WicketVicky backend routes instead of calling TheSportsDB directly.
 - Replace the placeholder QA and production URLs with your real backend endpoints before deployment.
 - Any `VITE_*` value is embedded into the browser bundle, so do not place private secrets in these files.
+- TheSportsDB keys should now live in the backend service environment, not in the frontend bundle, when you use the default setup.
 
 ## Docker
 
-You can now run the frontend in Docker for both development and production.
+You can now run the frontend and Python API in Docker for both development and production.
 
 ### Development container
 
 From the project root:
 
 ```bash
-docker compose up --build web
+docker compose up --build python-api web
 ```
 
 Open:
@@ -90,7 +109,7 @@ http://localhost:5173
 Build and run the production image with Nginx:
 
 ```bash
-docker compose --profile prod up --build web-prod
+docker compose --profile prod up --build python-api web-prod
 ```
 
 Open:
@@ -112,7 +131,7 @@ The frontend now supports direct integration with TheSportsDB.
 Default setup:
 
 - `VITE_SPORTS_DATA_MODE=api`
-- `VITE_SPORTS_API_PROVIDER=thesportsdb`
+- `VITE_SPORTS_API_PROVIDER=backend`
 - `VITE_THESPORTSDB_API_KEY=123`
 - `VITE_THESPORTSDB_TIER=free`
 
@@ -120,9 +139,10 @@ You can edit [apps/web/.env.example](</d:/projects/WicketVicky/apps/web/.env.exa
 
 Notes:
 
-- Free mode uses TheSportsDB day schedule endpoints and refreshes on an interval.
+- Free mode uses TheSportsDB day schedule endpoints, which are schedule-first and not guaranteed to be true live-score coverage.
 - Premium mode can use live score endpoints with your API key.
-- For production, move premium API calls behind Python or Spring so your private key is not exposed in the browser bundle.
+- The homepage now only shows genuinely in-progress matches in the `Live Now` strip.
+- The backend path is the preferred setup so your private key is not exposed in the browser bundle.
 
 ## Jenkins
 

@@ -2,7 +2,7 @@ const editorialTracks = [
   {
     title: 'Breaking Desk',
     description:
-      'Polling API data every minute for score changes, status shifts, and match windows that need attention.',
+      'Polling API data every minute for status shifts, score updates, and in-progress windows that need attention.',
   },
   {
     title: 'Competition Streams',
@@ -14,6 +14,53 @@ const editorialTracks = [
     description:
       'This same adapter can move into FastAPI or Spring later so your API key and premium feeds stay server-side.',
   },
+];
+
+const LIVE_STATUS_HINTS = [
+  'live',
+  'in progress',
+  'in-progress',
+  '1st half',
+  '2nd half',
+  'half-time',
+  'halftime',
+  'quarter',
+  'q1',
+  'q2',
+  'q3',
+  'q4',
+  'inning',
+  'innings',
+  'over',
+  'overs',
+  'period',
+  'set',
+  'overtime',
+  'extra time',
+  'extra-time',
+  'penalties',
+  'shootout',
+  'stumps',
+  'tea',
+  'lunch',
+];
+
+const NON_LIVE_STATUS_HINTS = [
+  'scheduled',
+  'not started',
+  'fixture',
+  'postponed',
+  'cancelled',
+  'canceled',
+  'abandoned',
+  'delayed',
+  'finished',
+  'full time',
+  'ft',
+  'final',
+  'after penalties',
+  'after extra time',
+  'aet',
 ];
 
 function toArray(value, fallbackKeys = []) {
@@ -46,6 +93,24 @@ function sortByTimestamp(events) {
     ).getTime();
     return rightTime - leftTime;
   });
+}
+
+function normalizeStatus(status) {
+  return (status ?? '').trim().toLowerCase();
+}
+
+function isLiveStatus(event) {
+  const status = normalizeStatus(event.strStatus);
+
+  if (!status) {
+    return false;
+  }
+
+  if (NON_LIVE_STATUS_HINTS.some((hint) => status.includes(hint))) {
+    return false;
+  }
+
+  return LIVE_STATUS_HINTS.some((hint) => status.includes(hint));
 }
 
 function getDisplayScore(event) {
@@ -107,7 +172,7 @@ function buildTopStories(events) {
 }
 
 function buildLiveMatches(events) {
-  return events.slice(0, 6).map((event, index) => {
+  return events.filter(isLiveStatus).slice(0, 6).map((event, index) => {
     const { home, away } = getDisplayScore(event);
 
     return {
@@ -144,42 +209,54 @@ function buildLeagues(events) {
   return Array.from(leagueMap.values()).slice(0, 3);
 }
 
-function buildSpotlight(events) {
-  const liveCount = events.filter((event) => {
-    const status = (event.strStatus ?? '').toLowerCase();
-    return status.includes('live') || status.includes('progress') || status.includes('quarter') || status.includes('inning');
-  }).length;
+function buildSpotlight(events, liveMatches, coverageType) {
+  const liveCount = liveMatches.length;
+  const isLiveCoverage = coverageType === 'livescore';
 
   return {
-    title: 'The homepage is now reading from a real sports data provider.',
+    title: isLiveCoverage
+      ? 'The homepage is reading a live scoreboard feed.'
+      : 'The homepage is reading a schedule-first sports feed.',
     summary:
-      'This is no longer a static prototype. The cards and story rails are being generated from live schedule or livescore data.',
+      isLiveCoverage
+        ? 'The backend is now pushing real in-progress matches and scoreline updates into the homepage contract.'
+        : 'This response is provider-backed, but it is still mostly a schedule snapshot until premium live coverage is enabled.',
     stat: `${liveCount}/${events.length || 1}`,
-    caption: 'events currently flagged as in-play or active',
+    caption: isLiveCoverage
+      ? 'events currently flagged as in-play'
+      : 'events currently flagged as in-play inside the schedule feed',
   };
 }
 
-function buildHero(events, sports) {
-  const liveCount = events.filter((event) => (event.strStatus ?? '').toLowerCase() !== 'not started').length;
+function buildHero(events, sports, liveMatches, coverageType) {
+  const liveCount = liveMatches.length;
   const competitions = new Set(events.map((event) => event.strLeague).filter(Boolean)).size;
+  const isLiveCoverage = coverageType === 'livescore';
 
   return {
-    title: 'Real sports data is now driving the WicketVicky desk.',
-    summary: `Tracking ${events.length} events across ${sports.length} sports and ${competitions} competitions through the frontend service layer.`,
+    title: isLiveCoverage
+      ? 'Live scores are now driving the WicketVicky desk.'
+      : 'Schedule snapshots are driving the WicketVicky desk right now.',
+    summary: isLiveCoverage
+      ? `Tracking ${events.length} events across ${sports.length} sports and ${competitions} competitions with live-score coverage from the active provider.`
+      : `Tracking ${events.length} events across ${sports.length} sports and ${competitions} competitions from a schedule-first provider response.`,
     metrics: [
       { label: 'Events loaded', value: `${events.length}` },
       { label: 'Sports active', value: `${sports.length}` },
-      { label: 'Live or updated', value: `${liveCount}` },
+      { label: 'In progress', value: `${liveCount}` },
     ],
   };
 }
 
-function buildMeta({ apiTier, refreshIntervalMs, isMock = false, notice = '' }) {
+function buildMeta({ apiTier, refreshIntervalMs, isMock = false, notice = '', providerLabel = 'TheSportsDB' }) {
   const refreshSeconds = Math.max(1, Math.round(refreshIntervalMs / 1000));
+  const coverageType = apiTier === 'premium' ? 'livescore' : 'schedule';
 
   return {
     isMock,
-    sourceLabel: apiTier === 'premium' ? 'TheSportsDB premium livescores' : 'TheSportsDB daily schedule',
+    coverageType,
+    coverageLabel: apiTier === 'premium' ? 'True live scores' : 'Daily schedule snapshot',
+    sourceLabel: apiTier === 'premium' ? `${providerLabel} premium livescores` : `${providerLabel} daily schedule`,
     refreshLabel: `Every ${refreshSeconds}s`,
     updatedLabel: formatUpdatedLabel(),
     notice,
@@ -191,16 +268,21 @@ export function buildHomeFeedFromSportsDb({ payload, apiTier, sports, refreshInt
     (event) => event?.strHomeTeam && event?.strAwayTeam,
   );
   const events = sortByTimestamp(rawEvents);
+  const coverageType = apiTier === 'premium' ? 'livescore' : 'schedule';
+  const liveMatches = buildLiveMatches(events);
 
   if (!events.length) {
     return {
       hero: {
         title: 'The sports API is connected, but no events were returned right now.',
-        summary: 'Try a different sport list, wait for the next refresh, or switch to premium livescores.',
+        summary:
+          coverageType === 'livescore'
+            ? 'Try a different sport list, wait for the next refresh, or verify the premium live provider response.'
+            : 'Try a different sport list, wait for the next refresh, or verify the schedule endpoint for today.',
         metrics: [
           { label: 'Events loaded', value: '0' },
           { label: 'Sports active', value: `${sports.length}` },
-          { label: 'Live or updated', value: '0' },
+          { label: 'In progress', value: '0' },
         ],
       },
       breakingTicker: ['No live or scheduled events were returned by the provider at this moment.'],
@@ -217,19 +299,25 @@ export function buildHomeFeedFromSportsDb({ payload, apiTier, sports, refreshInt
       meta: buildMeta({
         apiTier,
         refreshIntervalMs,
-        notice: 'The API connection succeeded, but there were no events in the current response.',
+        notice:
+          'The API connection succeeded, but there were no events in the current provider response.',
       }),
     };
   }
 
+  const notice =
+    coverageType === 'schedule' && !liveMatches.length
+      ? 'This provider response is a schedule snapshot right now, so there are no active in-progress matches to show.'
+      : '';
+
   return {
-    hero: buildHero(events, sports),
+    hero: buildHero(events, sports, liveMatches, coverageType),
     breakingTicker: buildBreakingTicker(events),
-    liveMatches: buildLiveMatches(events),
+    liveMatches,
     topStories: buildTopStories(events),
     editorialTracks,
-    spotlight: buildSpotlight(events),
+    spotlight: buildSpotlight(events, liveMatches, coverageType),
     leagues: buildLeagues(events),
-    meta: buildMeta({ apiTier, refreshIntervalMs }),
+    meta: buildMeta({ apiTier, refreshIntervalMs, notice }),
   };
 }

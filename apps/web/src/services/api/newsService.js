@@ -2,7 +2,7 @@ import { mockHomeFeed } from '../../features/home/data/mockNews';
 import { getTheSportsDbHomeFeed } from './providers/theSportsDbProvider';
 
 const DATA_MODE = import.meta.env.VITE_SPORTS_DATA_MODE ?? 'api';
-const SPORTS_PROVIDER = import.meta.env.VITE_SPORTS_API_PROVIDER ?? 'thesportsdb';
+const SPORTS_PROVIDER = import.meta.env.VITE_SPORTS_API_PROVIDER ?? 'backend';
 const ALLOW_MOCK_FALLBACK = (import.meta.env.VITE_SPORTS_ALLOW_MOCK_FALLBACK ?? 'true') !== 'false';
 const REFRESH_INTERVAL_MS = Number(import.meta.env.VITE_SPORTS_REFRESH_INTERVAL_MS ?? 60000);
 

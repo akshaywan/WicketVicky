@@ -1,0 +1,65 @@
+Great! Now let's set up Jenkins for CI/CD. Here's a complete guide:
+
+Step 1: Install Jenkins
+On Linux/Mac:
+bash
+# Using Docker (Easiest)
+docker run -d -p 8080:8080 -p 50000:50000 --name jenkins jenkins/jenkins:lts
+Get Initial Admin Password:
+bash
+docker logs jenkins | grep "Initial Admin Password"
+Then visit: http://localhost:8080
+
+Step 2: Create Jenkinsfile
+Create a Jenkinsfile in your project root:
+
+Jenkinsfile
+v1
+pipeline {
+    agent any
+
+    environment {
+        NODE_ENV = 'production'
+        DOCKER_IMAGE = "my-react-app:${BUILD_NUMBER}"
+Step 3: Push Jenkinsfile to GitHub
+bash
+git add Jenkinsfile
+git commit -m "Add Jenkins CI/CD pipeline"
+git push
+Step 4: Configure Jenkins Job
+Open Jenkins: http://localhost:8080
+Click "New Item"
+Enter job name: my-react-app
+Select "Pipeline"
+Click "OK"
+Step 5: Configure Pipeline
+In the job configuration:
+
+Scroll to "Pipeline" section
+Select "Pipeline script from SCM"
+Choose "Git"
+Enter your repo URL: https://github.com/YOUR_USERNAME/my-react-app.git
+Set branch to */master
+Save
+Step 6: Add Docker Credentials to Jenkins
+Click Manage Jenkins → Manage Credentials
+Click System → Global credentials
+Click Add Credentials
+Fill in:
+Username: Your Docker Hub username
+Password: Your Docker Hub token (not password!)
+ID: docker-username and docker-password
+Save
+Step 7: Add GitHub Webhook (Auto-trigger)
+In GitHub:
+Go to your repo → Settings → Webhooks
+Click "Add webhook"
+Payload URL: http://YOUR_JENKINS_URL/github-webhook/
+Content type: application/json
+Events: Select "Push events"
+Click "Add webhook"
+In Jenkins:
+Job → Configure
+Under Build Triggers, check "GitHub hook trigger for GITScm polling"
+Save
+Now, every push triggers the pipeline automatically! 🎉

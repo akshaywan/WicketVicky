@@ -36,16 +36,20 @@ function FeedStatus({ meta, status }) {
         <strong>{meta.sourceLabel}</strong>
       </div>
       <div>
-        <span className="feed-status-label">Refresh</span>
-        <strong>{meta.refreshLabel}</strong>
+        <span className="feed-status-label">Coverage</span>
+        <strong>{meta.coverageLabel}</strong>
       </div>
       <div>
         <span className="feed-status-label">Updated</span>
         <strong>{meta.updatedLabel}</strong>
       </div>
       <div>
+        <span className="feed-status-label">Refresh</span>
+        <strong>{meta.refreshLabel}</strong>
+      </div>
+      <div>
         <span className="feed-status-label">State</span>
-        <strong>{status === 'refreshing' ? 'Refreshing' : 'Live'}</strong>
+        <strong>{status === 'refreshing' ? 'Refreshing' : 'Ready'}</strong>
       </div>
       {meta.notice ? <p className="feed-status-notice">{meta.notice}</p> : null}
     </section>
@@ -89,8 +93,25 @@ function HeroSection({ hero, breakingTicker }) {
   );
 }
 
+function LiveSectionEmptyState({ meta }) {
+  const isLiveCoverage = meta?.coverageType === 'livescore';
+
+  return (
+    <div className="empty-state-card">
+      <p className="section-eyebrow">{isLiveCoverage ? 'No Live Matches' : 'Schedule Snapshot'}</p>
+      <h3>{isLiveCoverage ? 'No in-progress matches were returned this refresh.' : 'No active matches are in progress right now.'}</h3>
+      <p>
+        {isLiveCoverage
+          ? 'The feed is connected, but the provider did not return any active events in this polling window.'
+          : 'The current response is mostly fixture data, so this section stays empty until a match status moves into an in-progress state.'}
+      </p>
+    </div>
+  );
+}
+
 export default function HomePage({ feed, status, error }) {
   const liveUpdates = useLiveFeed(feed?.liveMatches ?? [], { simulate: feed?.meta?.isMock ?? false });
+  const isLiveCoverage = feed?.meta?.coverageType === 'livescore';
 
   if (status === 'loading') {
     return <LoadingState />;
@@ -107,16 +128,24 @@ export default function HomePage({ feed, status, error }) {
 
       <section id="live-now" className="content-section">
         <SectionHeading
-          eyebrow="Live Now"
-          title="Matches that need your attention"
-          description="Designed for realtime data feeds, this strip can switch from mock data to WebSocket or SSE updates without touching the UI layer."
+          eyebrow={isLiveCoverage ? 'Live Now' : 'In Progress'}
+          title={isLiveCoverage ? 'Matches that need your attention' : 'Only active matches appear in this strip'}
+          description={
+            isLiveCoverage
+              ? 'This row is reserved for genuinely in-progress matches from the active live-score feed.'
+              : 'Schedule data can still power the homepage, but this strip now stays strict and only renders matches whose statuses are actively in progress.'
+          }
         />
 
-        <div className="live-grid">
-          {liveUpdates.map((match) => (
-            <LiveMatchCard key={match.id} match={match} />
-          ))}
-        </div>
+        {liveUpdates.length ? (
+          <div className="live-grid">
+            {liveUpdates.map((match) => (
+              <LiveMatchCard key={match.id} match={match} />
+            ))}
+          </div>
+        ) : (
+          <LiveSectionEmptyState meta={feed.meta} />
+        )}
       </section>
 
       <section id="top-stories" className="content-section">

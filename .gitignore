@@ -7,3 +7,5 @@ dist/
 .env
 .env.local
 coverage/
+__pycache__/
+*.pyc

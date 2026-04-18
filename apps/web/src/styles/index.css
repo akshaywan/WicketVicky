@@ -176,7 +176,7 @@ button {
 
 .feed-status-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 16px;
   padding: 18px 22px;
   background: rgba(7, 22, 33, 0.82);
@@ -355,11 +355,22 @@ button {
 .live-match-card,
 .story-card,
 .league-card,
-.spotlight-panel {
+.spotlight-panel,
+.empty-state-card {
   padding: 20px;
   border-radius: 24px;
   background: var(--surface-strong);
   border: 1px solid var(--border);
+}
+
+.empty-state-card h3 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.empty-state-card p:last-child {
+  margin-bottom: 0;
+  color: var(--text-secondary);
 }
 
 .live-match-topline,
