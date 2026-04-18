@@ -180,7 +180,7 @@ pipeline {
     }
 
     always {
-      node {
+      node('') {
         script {
           if (fileExists('apps/web/dist')) {
             if (isUnix()) {
