@@ -180,12 +180,14 @@ pipeline {
     }
 
     always {
-      script {
-        if (fileExists('apps/web/dist')) {
-          if (isUnix()) {
-            sh 'ls -la apps/web/dist'
-          } else {
-            bat 'dir apps\\web\\dist'
+      node {
+        script {
+          if (fileExists('apps/web/dist')) {
+            if (isUnix()) {
+              sh 'ls -la apps/web/dist'
+            } else {
+              bat 'dir apps\\web\\dist'
+            }
           }
         }
       }
