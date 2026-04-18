@@ -123,22 +123,19 @@ pipeline {
               set -eu
               export PATH="${env.NODE_HOME}/bin:\$PATH"
 
-              # ── Install Railway CLI via npm (avoids blocked railway.app curl) ──
-              NPM_GLOBAL="${env.WORKSPACE_ROOT}/.jenkins/npm-global"
-              mkdir -p "\$NPM_GLOBAL"
+              # ── Install Railway CLI (pinned, skipped if already present) ──────
+              RAILWAY_BIN="${env.WORKSPACE_ROOT}/.jenkins/railway"
 
-              # Point npm global prefix inside the workspace so no root needed
-              "${env.NPM_CMD}" config set prefix "\$NPM_GLOBAL"
-
-              if [ ! -x "\$NPM_GLOBAL/bin/railway" ]; then
-                echo "Installing @railway/cli..."
-                "${env.NPM_CMD}" install -g @railway/cli
+              if [ ! -x "\$RAILWAY_BIN" ]; then
+                echo "Installing Railway CLI..."
+                curl -fsSL https://raw.githubusercontent.com/railwayapp/nixpacks/main/install.sh || true
+                curl -fsSL https://railway.app/install.sh | RAILWAY_VERSION=latest sh -s -- --prefix "${env.WORKSPACE_ROOT}/.jenkins"
               fi
 
-              export PATH="\$NPM_GLOBAL/bin:\$PATH"
+              export PATH="${env.WORKSPACE_ROOT}/.jenkins:\$PATH"
               railway --version
 
-              # ── Map Jenkins TARGET_ENV -> Railway environment name ─────────────
+              # ── Map Jenkins TARGET_ENV → Railway environment name ─────────────
               case "${params.TARGET_ENV}" in
                 dev)  RAILWAY_ENV="development" ;;
                 qa)   RAILWAY_ENV="staging"     ;;
@@ -156,6 +153,7 @@ pipeline {
                 apps/web/dist
             """
           } else {
+            // Windows agent fallback
             bat """
               npm install -g @railway/cli
 
